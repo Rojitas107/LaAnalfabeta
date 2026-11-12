@@ -1,0 +1,296 @@
+﻿@page "/libros"
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<div class="container mt-4">
+    
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 pb-3 border-bottom gap-3">
+        <h2 class="fw-bold mb-0 text-primary">
+            <i class="bi bi-journal-bookmark-fill me-2"></i> Catálogo de Libros
+        </h2>
+
+        @if (libros != null)
+        {
+            <div class="d-flex gap-2">
+                <div class="input-group shadow-sm" style="max-width: 300px;">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" class="form-control border-start-0" placeholder="Buscar por título o autor..." @bind="textoBusqueda" @bind:event="oninput" />
+                </div>
+
+                @if (esAdmin)
+                {
+                    <button class="btn btn-success shadow-sm text-nowrap" @onclick="AbrirModalNuevo">
+                        <i class="bi bi-plus-lg me-1"></i> Nuevo Libro
+                    </button>
+                }
+            </div>
+        }
+    </div>
+
+   
+    @if (libros == null)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+            <p class="mt-3 text-muted fs-5">Cargando catálogo...</p>
+        </div>
+    }
+    else if (LibrosFiltrados.Count == 0)
+    {
+        <div class="alert alert-info text-center py-4 shadow-sm" role="alert">
+            <i class="bi bi-info-circle fs-4 me-2"></i> No se encontraron libros.
+        </div>
+    }
+    else
+    {
+        
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
+            @foreach (var libro in LibrosFiltrados)
+            {
+                <div class="col">
+                    <div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden card-hover">
+                        <div class="position-relative bg-light d-flex justify-content-center align-items-center" style="height: 250px;">
+                            @if (!string.IsNullOrEmpty(libro.imagenRuta))
+                            {
+                                <img src="/imagenes/@libro.imagenRuta" class="w-100 h-100" style="object-fit: contain;" alt="Portada" />
+                            }
+                            else
+                            {
+                                <div class="text-muted text-center">
+                                    <i class="bi bi-image display-4"></i>
+                                    <p class="mb-0 mt-2 small">Sin portada</p>
+                                </div>
+                            }
+
+                            <span class="position-absolute top-0 end-0 m-3 badge @(libro.disponible ? "bg-success" : "bg-danger") shadow-sm">
+                                @(libro.disponible ? "Disponible" : "Prestado")
+                            </span>
+                        </div>
+
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title fw-bold text-truncate" title="@libro.titulo">@libro.titulo</h5>
+                            <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-person me-1"></i> @libro.autor</h6>
+
+                            <div class="mt-auto pt-3 border-top text-muted small">
+                                <div class="d-flex justify-content-between">
+                                    <span><strong>Cód:</strong> @libro.codigo</span>
+                                    <span><i class="bi bi-building me-1"></i>@libro.editorial</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-footer bg-white border-top-0 pt-0 pb-3 d-flex gap-2">
+                            @if (esAdmin)
+                            {
+                                <button class="btn btn-outline-primary btn-sm w-50" @onclick="() => AbrirModalEditar(libro)">
+                                    <i class="bi bi-pencil-square me-1"></i> Editar
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm w-50" @onclick="() => EliminarLibro(libro.LibroID)">
+                                    <i class="bi bi-trash me-1"></i> Eliminar
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-primary btn-sm w-100" disabled="@(!libro.disponible)" @onclick="() => SolicitarPrestamo(libro)">
+                                    <i class="bi bi-book me-1"></i> @(libro.disponible ? "Solicitar Préstamo" : "No disponible")
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header bg-light border-0 rounded-top-4">
+                    <h5 class="modal-title fw-bold">@(libroActual.LibroID == 0 ? "Agregar Nuevo Libro" : "Editar Libro")</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Título</label>
+                        <input class="form-control" @bind="libroActual.titulo" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Autor</label>
+                        <input class="form-control" @bind="libroActual.autor" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Código</label>
+                            <input class="form-control" @bind="libroActual.codigo" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Editorial</label>
+                            <input class="form-control" @bind="libroActual.editorial" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Imagen</label>
+                        <input class="form-control" @bind="libroActual.imagenRuta" />
+                    </div>
+                    <div class="form-check form-switch mt-4">
+                        <input class="form-check-input" type="checkbox" role="switch" id="switchDisponible" @bind="libroActual.disponible">
+                        <label class="form-check-label fw-semibold" for="switchDisponible">¿Está disponible?</label>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="GuardarLibro">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .card-hover {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 .5rem 1rem rgba(0,0,0,.15) !important;
+        }
+</style>
+
+@code {
+    private List<Libro>? libros;
+    private string textoBusqueda = "";
+    private bool mostrarModal = false;
+    private Libro libroActual = new Libro();
+    private bool esAdmin = false;
+
+    private List<Libro> LibrosFiltrados
+    {
+        get
+        {
+            if (libros == null) return new List<Libro>();
+            if (string.IsNullOrWhiteSpace(textoBusqueda)) return libros;
+            return libros.Where(l => l.titulo.Contains(textoBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                                     l.autor.Contains(textoBusqueda, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            
+            string? token = null;
+            string? rol = null;
+            try
+            {
+                token = await JS.InvokeAsync<string>("localStorage.getItem", "token");
+                rol = await JS.InvokeAsync<string>("localStorage.getItem", "rol");
+            }
+            catch { }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Nav.NavigateTo("/login", forceLoad: true);
+                return;
+            }
+
+            if (rol == "Admin" || rol == "Administrador")
+            {
+                esAdmin = true;
+            }
+
+            
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token!);
+
+            
+            var listaDesdeApi = await Http.GetFromJsonAsync<List<Libro>>("api/Libros");
+
+            
+            libros = listaDesdeApi ?? new List<Libro>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error al cargar libros: " + ex.Message);
+            libros = new List<Libro>(); 
+        }
+    }
+
+    private void AbrirModalNuevo()
+    {
+        libroActual = new Libro { disponible = true };
+        mostrarModal = true;
+    }
+
+    private void AbrirModalEditar(Libro libro)
+    {
+        libroActual = new Libro
+        {
+            LibroID = libro.LibroID,
+            titulo = libro.titulo,
+            autor = libro.autor,
+            codigo = libro.codigo,
+            editorial = libro.editorial,
+            imagenRuta = libro.imagenRuta,
+            disponible = libro.disponible
+        };
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        libroActual = new Libro();
+    }
+
+    private void GuardarLibro()
+    {
+        if (libroActual.LibroID == 0)
+        {
+            libroActual.LibroID = new Random().Next(1000, 9999);
+            libros?.Add(libroActual);
+        }
+        else
+        {
+            if (libros != null)
+            {
+                var index = libros.FindIndex(l => l.LibroID == libroActual.LibroID);
+                if (index != -1) libros[index] = libroActual;
+            }
+        }
+        mostrarModal = false;
+    }
+
+    private void EliminarLibro(int id)
+    {
+        var lib = libros?.FirstOrDefault(l => l.LibroID == id);
+        if (lib != null && libros != null)
+        {
+            libros.Remove(lib);
+        }
+    }
+
+    private void SolicitarPrestamo(Libro libro)
+    {
+        Console.WriteLine($"Solicitando préstamo del libro: {libro.titulo}");
+        libro.disponible = false;
+    }
+
+    public class Libro
+    {
+        public int LibroID { get; set; }
+        public string codigo { get; set; } = "";
+        public string titulo { get; set; } = "";
+        public string autor { get; set; } = "";
+        public string editorial { get; set; } = "";
+        public string imagenRuta { get; set; } = "";
+        public bool disponible { get; set; }
+    }
+}

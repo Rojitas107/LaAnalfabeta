@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="../LaAnalfabeta/LaAnalfabeta/LaAnalfabeta.csproj" Id="b0ee64fa-33ad-458b-b3ad-6be6415dc7b0" />
+  <Project Path="../WebAnalfabeta/WebAnalfabeta/WebAnalfabeta.csproj" />
+  <Project Path="APIanalfabeta/APIanalfabeta.csproj" />
+</Solution>

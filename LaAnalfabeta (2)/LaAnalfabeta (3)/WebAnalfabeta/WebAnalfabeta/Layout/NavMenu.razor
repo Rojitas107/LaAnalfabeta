@@ -1,0 +1,84 @@
+﻿@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">WebAnalfabeta</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Inicio
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="libros">
+                <span class="bi bi-book-nav-menu" aria-hidden="true"></span> Catálogo
+            </NavLink>
+        </div>
+
+        @if (esAdmin)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="gestion-libros">
+                    <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> Gestionar Libros
+                </NavLink>
+            </div>
+        }
+
+        <div class="nav-item px-3 mt-4">
+            <button class="nav-link btn btn-link text-danger text-start w-100" @onclick="CerrarSesion">
+                <span class="bi bi-box-arrow-right me-2" aria-hidden="true"></span> Cerrar Sesión
+            </button>
+        </div>
+
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private bool esAdmin = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var rol = await JS.InvokeAsync<string>("localStorage.getItem", "rol");
+                if (rol == "Admin" || rol == "Administrador")
+                {
+                    esAdmin = true;
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task CerrarSesion()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", "token");
+            await JS.InvokeVoidAsync("localStorage.removeItem", "rol");
+        }
+        catch { }
+
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}

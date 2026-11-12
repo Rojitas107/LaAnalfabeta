@@ -1,0 +1,6 @@
+@APIanalfabeta_HostAddress = http://localhost:5188
+
+GET {{APIanalfabeta_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

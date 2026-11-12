@@ -1,0 +1,104 @@
+﻿@page "/login"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="container d-flex justify-content-center align-items-center vh-100">
+    <div class="card shadow-lg border-0 rounded-4" style="width: 100%; max-width: 400px;">
+        <div class="card-body p-5">
+
+            <div class="text-center mb-4">
+                <div class="bg-primary text-white rounded-circle d-inline-flex justify-content-center align-items-center mb-3 shadow" style="width: 60px; height: 60px;">
+                    <i class="bi bi-book fs-2"></i>
+                </div>
+                <h3 class="fw-bold">Iniciar Sesión</h3>
+                <p class="text-muted small">Ingresa a la biblioteca "La Analfabeta"</p>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Usuario</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-person"></i></span>
+                    <input @bind="usuario" class="form-control" placeholder="Tu nombre de usuario" />
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Contraseña</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-lock"></i></span>
+                    <input type="password" @bind="contrasena" class="form-control" placeholder="••••••••" />
+                </div>
+            </div>
+
+            <button @onclick="IniciarSesion" class="btn btn-primary w-100 py-2 fw-semibold shadow-sm">
+                Ingresar <i class="bi bi-box-arrow-in-right ms-1"></i>
+            </button>
+
+            @if (!string.IsNullOrEmpty(mensajeError))
+            {
+                <div class="alert alert-danger mt-4 py-2 text-center small shadow-sm" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>@mensajeError
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string usuario = "";
+    private string contrasena = "";
+    private string mensajeError = "";
+
+    private async Task IniciarSesion()
+    {
+        mensajeError = "";
+        try
+        {
+            
+            var loginData = new { usuario = usuario, contrasena = contrasena };
+
+            
+            var url = "https://localhost:7225/api/Auth/login";
+
+            
+            var response = await Http.PostAsJsonAsync(url, loginData);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+
+                if (result == null || string.IsNullOrEmpty(result.token))
+                {
+                    mensajeError = "La API respondió, pero no envió el token.";
+                    return;
+                }
+
+                await JS.InvokeVoidAsync("localStorage.setItem", "token", result.token);
+                await JS.InvokeVoidAsync("localStorage.setItem", "rol", result.rol);
+
+                Nav.NavigateTo("/libros", forceLoad: true);
+            }
+            else
+            {
+                
+                var errorDeApi = await response.Content.ReadAsStringAsync();
+                mensajeError = $"Error {(int)response.StatusCode}: {errorDeApi}";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeError = "Error de conexión: " + ex.Message;
+        }
+    }
+
+    public class LoginResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("token")]
+        public string token { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("rol")]
+        public string rol { get; set; } = "";
+    }
+}

@@ -1,0 +1,55 @@
+﻿@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        @if (cargando)
+        {
+            <div class="d-flex justify-content-center align-items-center vh-100">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+            </div>
+        }
+        else if (estasLogueado || routeData.PageType == typeof(WebAnalfabeta.Pages.Login))
+        {
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        }
+        else
+        {
+            <LoginRedirect />
+        }
+    </Found>
+    <NotFound>
+        <PageTitle>No encontrado</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p role="alert" class="mt-5 text-center">Lo siento, no hay nada en esta dirección.</p>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    private bool estasLogueado = false;
+    private bool cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "token");
+            estasLogueado = !string.IsNullOrEmpty(token);
+        }
+        catch { estasLogueado = false; }
+        finally { cargando = false; }
+    }
+
+    private class LoginRedirect : Microsoft.AspNetCore.Components.ComponentBase
+    {
+        [Microsoft.AspNetCore.Components.Inject]
+        private NavigationManager Nav { get; set; } = default!;
+
+        protected override void OnInitialized()
+        {
+            Nav.NavigateTo("/login");
+        }
+    }
+}
